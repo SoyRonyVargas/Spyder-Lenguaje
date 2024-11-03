@@ -1,0 +1,9 @@
+INICIO 
+TEST=1!     
+hey=123!
+saludo="Hola Mundo"! # este es un comentario
+saludo2="Hola Mundo 2"!
+saludo3="Hola Mundo"!
+saludo4="Hola Mundo"!
+scan("hola")
+FIN

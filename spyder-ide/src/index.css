@@ -1,0 +1,36 @@
+body
+{
+  padding: 20px;
+}
+
+main
+{
+}
+
+.grid
+{
+  display: grid;
+  grid-gap: 8px;
+  grid-template-columns: 70% 30%;
+  height: 100vh; /* Ocupa toda la altura del body */
+}
+
+.code,
+#code
+{
+  height: 90%;
+  width: 100%;
+  outline: none;
+  border: 1px solid #504343;
+  border-radius: 8px;
+  max-height: 600px;
+}
+
+.box-tokens
+{
+  max-height: 300px;
+  overflow: auto;
+  background: #ddd;
+  border-radius: 8px;
+  padding: 14px 24px;
+}
