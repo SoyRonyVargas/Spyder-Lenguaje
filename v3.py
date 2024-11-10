@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+# import pdb
 import re
 
 app = Flask(__name__)
@@ -51,6 +52,8 @@ def parse_program(tokens):
     in_program = False
     symbol_table = {}
     current_statement = []
+    
+    # breakpoint()
     
     for token in tokens:
         if token[0] == 'START':
