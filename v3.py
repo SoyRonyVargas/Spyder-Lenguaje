@@ -87,6 +87,10 @@ def parse_assignment(tokens, symbol_table):
         elif len(expr_tokens) == 1 and expr_tokens[0][0] == 'STRING':
             value = expr_tokens[0][1].strip('"')
         else:
+            filterByIdentifiers = filter(lambda x: x[0] == 'IDENTIFIER', expr_tokens)
+            for(_, token_value, line_num) in filterByIdentifiers:
+                if token_value not in symbol_table:
+                    raise SyntaxError(f'Error de sintaxis en la línea {line_num}: falta el símbolo "!" al final de la declaración.')
             value = evaluate_expression(expr_tokens, symbol_table)
 
         symbol_table[var_name] = value
