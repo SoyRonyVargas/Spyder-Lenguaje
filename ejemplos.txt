@@ -43,3 +43,28 @@ while(contador < 10 ) {
   contador = contador + 1!
 } !
 FIN
+
+5. Bloque de anidacion compleja
+INICIO
+x= 1!
+if (x == 1) {
+    x = 10!
+   if( x == 10 ){
+    x = 20!
+    contador = 5!
+    while(contador < 10 ) {
+        contador = contador + 1!
+        contador2 = 1!
+        while(contador2 < 10 ) {
+            contador2 = contador2 + 1!
+        }!
+    }!
+  }!
+  else
+  {
+    x = 10!
+  }!
+} else {
+    y = 0 !
+} !
+FIN

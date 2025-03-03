@@ -137,19 +137,26 @@ def parse_block(tokens, symbol_table):
         line_num = tokens[0][2]
         raise SyntaxError(f'Error en línea {line_num}: bloque mal formado.')
     
-    # Procesar todas las declaraciones dentro del bloque
     current_statement = []
-    for token in tokens[1:-1]:  # Ignorar las llaves
-        if token[1] == '!':
+    brace_count = 0  # Contador de bloques anidados
+    
+    for token in tokens[1:-1]:  # Ignorar las llaves externas
+        if token[1] == '{':
+            brace_count += 1
+        elif token[1] == '}':
+            brace_count -= 1
+        
+        # Procesar "!" solo si no estamos dentro de un bloque anidado
+        if token[1] == '!' and brace_count == 0:
             parse_statement(current_statement, symbol_table)
             current_statement = []
         else:
             current_statement.append(token)
     
-    if current_statement:  # Declaración incompleta
+    if current_statement:
         line_num = current_statement[-1][2]
         raise SyntaxError(f'Error en línea {line_num}: falta "!" al final.')
-
+    
 def parse_if(tokens, symbol_table):
     try:
         # Buscar paréntesis de condición
