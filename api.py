@@ -9,12 +9,12 @@ CORS(app)
 tokens = [
     ('START', r'\bINICIO\b'),                      # Inicio del programa
     ('END', r'\bFIN\b'),                           # Fin del programa
-    ('KEYWORD', r'\b(if|else|print|scan|while)\b'),# Palabras clave
+    ('KEYWORD', r'\b(if|else|print|scan|while|doFor)\b'),# Palabras clave
     ('OPERATOR', r'(\+|\-|\*|\/|==|<=|>=|=|%|<|>|&|\|)'),  # Operadores
     ('IDENTIFIER', r'\b[A-Za-z_][A-Za-z0-9_]*\b'), # Identificadores
     ('NUMBER', r'\b\d+(\.\d+)?\b'),                # Números (enteros y flotantes)
     ('STRING', r'\".*?\"'),                        # Cadenas de texto
-    ('SYMBOL', r'[!()\{\}]'),                      # Símbolos como (), {}, !
+    ('SYMBOL', r'[!()\{\};]'),                      # Símbolos como (), {}, !
     ('COMMENT', r'#.*'),                           # Comentarios
     ('WHITESPACE', r'\s+'),                        # Espacios en blanco
     ('NEWLINE', r'!'),                              # Fin de línea
@@ -104,10 +104,61 @@ def parse_statement(tokens, symbol_table):
         parse_else(tokens, symbol_table)
     elif first_token == 'while':  # Nuevo caso para while
         parse_while(tokens, symbol_table)
+    elif first_token == 'doFor':  # Nuevo caso para doFor
+        parse_doFor(tokens, symbol_table)
     elif tokens[0][1] == '{':
         parse_block(tokens, symbol_table)
     else:
         parse_assignment(tokens, symbol_table)
+
+def parse_doFor(tokens, symbol_table):
+    try:
+        # Buscar paréntesis de condición
+        paren_start = tokens.index(('SYMBOL', '(', tokens[0][2])) + 1
+        paren_end = tokens.index(('SYMBOL', ')', tokens[0][2]))
+    except ValueError:
+        line_num = tokens[0][2]
+        raise SyntaxError(f'Error en línea {line_num}: paréntesis mal formados en "doFor".')
+    
+    # Obtener las tres partes del for: inicialización, condición, actualización
+    for_parts = tokens[paren_start:paren_end]
+    parts = []
+    current_part = []
+    
+    for token in for_parts:
+        if token[1] == ';':
+            parts.append(current_part)
+            current_part = []
+        else:
+            current_part.append(token)
+    parts.append(current_part)  # Añadir la última parte
+    
+    if len(parts) != 3:
+        line_num = tokens[0][2]
+        raise SyntaxError(f'Error en línea {line_num}: "doFor" necesita tres partes separadas por ";".')
+    
+    init_tokens, condition_tokens, update_tokens = parts
+    
+    # Procesar inicialización (asignación)
+    parse_assignment(init_tokens, symbol_table)
+    
+    # Evaluar condición (debe ser booleana)
+    condition = evaluate_expression(condition_tokens, symbol_table)
+    if not isinstance(condition, bool):
+        line_num = tokens[0][2]
+        raise SyntaxError(f'Condición no booleana en línea {line_num} en "doFor".')
+    
+    # Procesar cuerpo del doFor (debe estar entre llaves)
+    body_tokens = tokens[paren_end+1:]
+    if not body_tokens or body_tokens[0][1] != '{':
+        line_num = tokens[0][2]
+        raise SyntaxError(f'Error en línea {line_num}: cuerpo del "doFor" debe estar entre llaves {{}}.')
+    
+    # Ejecutar el bucle (simulación básica)
+    while condition:
+        parse_block(body_tokens, symbol_table)
+        parse_assignment(update_tokens, symbol_table)
+        condition = evaluate_expression(condition_tokens, symbol_table)
 
 def parse_while(tokens, symbol_table):
     try:

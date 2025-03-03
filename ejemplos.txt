@@ -68,3 +68,14 @@ if (x == 1) {
     y = 0 !
 } !
 FIN
+
+6. Ejemplo for con validacion if
+INICIO
+test = 0!
+doFor (i = 0; i < 5; i = i + 1){
+    if( i == 1 )
+    { 
+      test=10!
+    }!
+}!
+FIN
