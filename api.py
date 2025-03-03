@@ -112,16 +112,21 @@ def parse_statement(tokens, symbol_table):
         parse_assignment(tokens, symbol_table)
 
 def parse_doFor(tokens, symbol_table):
+    # Validar estructura básica
+    if len(tokens) < 2 or tokens[1][1] != '(':
+        line_num = tokens[0][2]
+        raise SyntaxError(f'Error en línea {line_num}: estructura "doFor" debe ser: doFor (inicialización; condición; actualización) {{...}}')
+
     try:
         # Buscar paréntesis de condición
-        paren_start = tokens.index(('SYMBOL', '(', tokens[0][2])) + 1
+        paren_start = tokens.index(('SYMBOL', '(', tokens[0][2]), 1)  # Busca "(" después de "doFor"
         paren_end = tokens.index(('SYMBOL', ')', tokens[0][2]))
     except ValueError:
         line_num = tokens[0][2]
         raise SyntaxError(f'Error en línea {line_num}: paréntesis mal formados en "doFor".')
     
-    # Obtener las tres partes del for: inicialización, condición, actualización
-    for_parts = tokens[paren_start:paren_end]
+    # Obtener las tres partes del for
+    for_parts = tokens[paren_start+1:paren_end]
     parts = []
     current_part = []
     
@@ -131,7 +136,7 @@ def parse_doFor(tokens, symbol_table):
             current_part = []
         else:
             current_part.append(token)
-    parts.append(current_part)  # Añadir la última parte
+    parts.append(current_part)
     
     if len(parts) != 3:
         line_num = tokens[0][2]
@@ -154,7 +159,7 @@ def parse_doFor(tokens, symbol_table):
         line_num = tokens[0][2]
         raise SyntaxError(f'Error en línea {line_num}: cuerpo del "doFor" debe estar entre llaves {{}}.')
     
-    # Ejecutar el bucle (simulación básica)
+    # Ejecutar el bucle
     while condition:
         parse_block(body_tokens, symbol_table)
         parse_assignment(update_tokens, symbol_table)
