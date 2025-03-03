@@ -17,7 +17,10 @@ tokens = [
     ('SYMBOL', r'[!()\{\}]'),                      # Símbolos como (), {}, !
     ('COMMENT', r'#.*'),                           # Comentarios
     ('WHITESPACE', r'\s+'),                        # Espacios en blanco
-    ('NEWLINE', r'!')                              # Fin de línea
+    ('NEWLINE', r'!'),                              # Fin de línea
+    ('LBRACE', r'\{'),  # Llave izquierda
+    ('RBRACE', r'\}'),  # Llave derecha
+    ('SYMBOL', r'[!()]'),  # Símbolos restantes (quita { y } de aquí)
 ]
 
 # Función para el analizador léxico
@@ -46,7 +49,6 @@ def lexer(code):
             raise SyntaxError(f'Error léxico en la línea {line_num}, posición {pos}: "{code[pos]}"')
     return tokens_found, minified_code
 
-# Función para procesar el programa en zonas de inicio y fin
 def parse_program(tokens):
     if tokens[0][0] != 'START' or tokens[-1][0] != 'END':
         raise SyntaxError('El programa debe comenzar con "INICIO" y terminar con "FIN".')
@@ -54,6 +56,7 @@ def parse_program(tokens):
     in_program = False
     symbol_table = {}
     current_statement = []
+    brace_stack = []  # Para manejar bloques anidados
     
     for token in tokens:
         if token[0] == 'START':
@@ -62,19 +65,95 @@ def parse_program(tokens):
             in_program = False
             if current_statement:
                 line_num = current_statement[-1][2]
-                raise SyntaxError(f'Error de sintaxis en la línea {line_num}: falta el símbolo "!" al final de la declaración.')
+                raise SyntaxError(f'Error de sintaxis en la línea {line_num}: falta el símbolo "!" al final.')
             break
         elif in_program:
             if token[1] == '!':
-                parse_assignment(current_statement, symbol_table)
-                current_statement = []
+                if not brace_stack:  # Solo procesar si no estamos dentro de un bloque
+                    parse_statement(current_statement, symbol_table)
+                    current_statement = []
+                else:
+                    current_statement.append(token)
+            elif token[1] == '{':
+                brace_stack.append('{')
+                current_statement.append(token)
+            elif token[1] == '}':
+                if not brace_stack:
+                    raise SyntaxError(f'Llave de cierre sin apertura en línea {token[2]}')
+                brace_stack.pop()
+                current_statement.append(token)
+                if not brace_stack:  # Fin del bloque
+                    parse_statement(current_statement, symbol_table)
+                    current_statement = []
             else:
                 current_statement.append(token)
 
     if in_program:
-        raise SyntaxError('Error de sintaxis: el programa no ha sido cerrado correctamente con "FIN".')
+        raise SyntaxError('El programa no ha sido cerrado con "FIN".')
     
     return symbol_table
+
+def parse_statement(tokens, symbol_table):
+    if not tokens:
+        return
+    
+    first_token = tokens[0][1]
+    if first_token == 'if':
+        parse_if(tokens, symbol_table)
+    elif first_token == 'else':
+        parse_else(tokens, symbol_table)
+    elif tokens[0][1] == '{':
+        parse_block(tokens, symbol_table)
+    else:
+        parse_assignment(tokens, symbol_table)
+
+def parse_block(tokens, symbol_table):
+    if tokens[0][1] != '{' or tokens[-1][1] != '}':
+        line_num = tokens[0][2]
+        raise SyntaxError(f'Error en línea {line_num}: bloque mal formado.')
+    
+    # Procesar todas las declaraciones dentro del bloque
+    current_statement = []
+    for token in tokens[1:-1]:  # Ignorar las llaves
+        if token[1] == '!':
+            parse_statement(current_statement, symbol_table)
+            current_statement = []
+        else:
+            current_statement.append(token)
+    
+    if current_statement:  # Declaración incompleta
+        line_num = current_statement[-1][2]
+        raise SyntaxError(f'Error en línea {line_num}: falta "!" al final.')
+
+def parse_if(tokens, symbol_table):
+    try:
+        # Buscar paréntesis de condición
+        cond_start = tokens.index(('SYMBOL', '(', tokens[0][2])) + 1
+        cond_end = tokens.index(('SYMBOL', ')', tokens[0][2]))
+    except ValueError:
+        line_num = tokens[0][2]
+        raise SyntaxError(f'Error en línea {line_num}: paréntesis mal formados en "if".')
+    
+    # Evaluar condición
+    condition = evaluate_expression(tokens[cond_start:cond_end], symbol_table)
+    if not isinstance(condition, bool):
+        line_num = tokens[0][2]
+        raise SyntaxError(f'Condición no booleana en línea {line_num}')
+    
+    # Procesar cuerpo del if (debe estar entre llaves)
+    body_tokens = tokens[cond_end+1:]
+    if not body_tokens or body_tokens[0][1] != '{':
+        line_num = tokens[0][2]
+        raise SyntaxError(f'Error en línea {line_num}: cuerpo del "if" debe estar entre llaves.')
+    
+    parse_block(body_tokens, symbol_table)
+
+def parse_else(tokens, symbol_table):
+    if len(tokens) < 2:
+        line_num = tokens[0][2]
+        raise SyntaxError(f'Error en línea {line_num}: "else" no puede estar vacío.')
+    # Procesa el cuerpo del else
+    parse_statement(tokens[1:], symbol_table)
 
 # Función para procesar asignaciones de variables
 def parse_assignment(tokens, symbol_table):

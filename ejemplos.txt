@@ -7,3 +7,31 @@ saludo3="Hola Mundo"!
 saludo4="Hola Mundo"!
 scan("hola")
 FIN
+
+2. Ejemplo concatenaciones
+
+INICIO
+TEST=1!     
+hey=123!
+saludo=1! # este es un comentario
+saludo2= 1 + saludo!
+saludo3="Hola Mundo"!
+saludo4="Hola Mundo"!
+if 1 == 10 {
+}
+FIN
+
+3. Ejemplo de un if valido
+INICIO
+x= 1!
+if (x == 10) {
+    y = 20 + x!
+    z = 30 !
+} else {
+    y = 0 !
+} !
+
+if( y == x ) {
+   w = 100!
+}
+FIN
