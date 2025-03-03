@@ -9,7 +9,7 @@ CORS(app)
 tokens = [
     ('START', r'\bINICIO\b'),                      # Inicio del programa
     ('END', r'\bFIN\b'),                           # Fin del programa
-    ('KEYWORD', r'\b(if|else|print|scan)\b'),      # Palabras clave
+    ('KEYWORD', r'\b(if|else|print|scan|while)\b'),# Palabras clave
     ('OPERATOR', r'(\+|\-|\*|\/|==|<=|>=|=|%|<|>|&|\|)'),  # Operadores
     ('IDENTIFIER', r'\b[A-Za-z_][A-Za-z0-9_]*\b'), # Identificadores
     ('NUMBER', r'\b\d+(\.\d+)?\b'),                # Números (enteros y flotantes)
@@ -102,10 +102,35 @@ def parse_statement(tokens, symbol_table):
         parse_if(tokens, symbol_table)
     elif first_token == 'else':
         parse_else(tokens, symbol_table)
+    elif first_token == 'while':  # Nuevo caso para while
+        parse_while(tokens, symbol_table)
     elif tokens[0][1] == '{':
         parse_block(tokens, symbol_table)
     else:
         parse_assignment(tokens, symbol_table)
+
+def parse_while(tokens, symbol_table):
+    try:
+        # Buscar paréntesis de condición
+        cond_start = tokens.index(('SYMBOL', '(', tokens[0][2])) + 1
+        cond_end = tokens.index(('SYMBOL', ')', tokens[0][2]))
+    except ValueError:
+        line_num = tokens[0][2]
+        raise SyntaxError(f'Error en línea {line_num}: paréntesis mal formados en "while".')
+    
+    # Evaluar condición
+    condition = evaluate_expression(tokens[cond_start:cond_end], symbol_table)
+    if not isinstance(condition, bool):
+        line_num = tokens[0][2]
+        raise SyntaxError(f'Condición no booleana en línea {line_num} (se esperaba true/false).')
+    
+    # Procesar cuerpo (debe estar entre llaves)
+    body_tokens = tokens[cond_end+1:]
+    if not body_tokens or body_tokens[0][1] != '{':
+        line_num = tokens[0][2]
+        raise SyntaxError(f'Error en línea {line_num}: cuerpo del "while" debe estar entre llaves {{}}.')
+    
+    parse_block(body_tokens, symbol_table)
 
 def parse_block(tokens, symbol_table):
     if tokens[0][1] != '{' or tokens[-1][1] != '}':
