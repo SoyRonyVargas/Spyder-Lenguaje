@@ -35,3 +35,11 @@ if( y == x ) {
    w = 100!
 }
 FIN
+
+4. Ejemplo de un while valido
+INICIO
+contador = 5!
+while(contador < 10 ) {
+  contador = contador + 1!
+} !
+FIN
