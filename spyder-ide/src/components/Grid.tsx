@@ -67,6 +67,23 @@ const Grid = () => {
                         success.minified_code
                     }
                 </div>
+                <hr />
+                <div>
+                    <h3>Logs</h3>
+                    <ul className='box-tokens'>
+                        {
+                            success &&
+                            success.logs.map( log => (
+                                <>
+                                    <li>
+                                        {log}
+                                    </li>
+                                    {/* <hr /> */}
+                                </>
+                            ))
+                        }
+                    </ul>
+                </div>
             </section>
            
         </div>

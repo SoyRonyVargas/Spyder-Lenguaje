@@ -23,6 +23,8 @@ tokens = [
     ('SYMBOL', r'[!()]'),  # Símbolos restantes (quita { y } de aquí)
 ]
 
+logs = []
+
 # Función para el analizador léxico
 def lexer(code):
     pos = 0
@@ -106,10 +108,28 @@ def parse_statement(tokens, symbol_table):
         parse_while(tokens, symbol_table)
     elif first_token == 'doFor':  # Nuevo caso para doFor
         parse_doFor(tokens, symbol_table)
+    elif first_token == 'print':  # Nuevo caso para print
+        parse_print(tokens, symbol_table)
     elif tokens[0][1] == '{':
         parse_block(tokens, symbol_table)
     else:
         parse_assignment(tokens, symbol_table)
+
+def parse_print(tokens, symbol_table):
+    try:
+        # Buscar paréntesis de la expresión
+        paren_start = tokens.index(('SYMBOL', '(', tokens[0][2]))
+        paren_end = tokens.index(('SYMBOL', ')', tokens[0][2]))
+    except ValueError:
+        line_num = tokens[0][2]
+        raise SyntaxError(f'Error en línea {line_num}: print debe tener la forma print(expresión).')
+    
+    # Evaluar la expresión dentro del print
+    expr_tokens = tokens[paren_start+1:paren_end]
+    result = evaluate_expression(expr_tokens, symbol_table)
+    
+    # Almacenar el resultado en el array global
+    logs.append(str(result))
 
 def parse_doFor(tokens, symbol_table):
     # Validar estructura básica
@@ -228,13 +248,13 @@ def parse_if(tokens, symbol_table):
         line_num = tokens[0][2]
         raise SyntaxError(f'Condición no booleana en línea {line_num}')
     
-    # Procesar cuerpo del if (debe estar entre llaves)
+    # Procesar cuerpo del if SOLO si la condición es verdadera
     body_tokens = tokens[cond_end+1:]
-    if not body_tokens or body_tokens[0][1] != '{':
-        line_num = tokens[0][2]
-        raise SyntaxError(f'Error en línea {line_num}: cuerpo del "if" debe estar entre llaves.')
-    
-    parse_block(body_tokens, symbol_table)
+    if condition:  # <--- ¡Aquí está el cambio clave!
+        if not body_tokens or body_tokens[0][1] != '{':
+            line_num = tokens[0][2]
+            raise SyntaxError(f'Error en línea {line_num}: cuerpo del "if" debe estar entre llaves.')
+        parse_block(body_tokens, symbol_table)
 
 def parse_else(tokens, symbol_table):
     if len(tokens) < 2:
@@ -263,7 +283,7 @@ def parse_assignment(tokens, symbol_table):
         symbol_table[var_name] = value
     else:
         line_num = tokens[0][2] if tokens else '?'
-        raise SyntaxError(f'Error de sintaxis en la línea {line_num} en la asignación.')
+        raise SyntaxError(f'Error de sintaxis en la línea {line_num}.')
 
 # Función para evaluar expresiones aritméticas
 def evaluate_expression(tokens, symbol_table):
@@ -271,10 +291,16 @@ def evaluate_expression(tokens, symbol_table):
     for token_type, token_value, line_num in tokens:
         if token_type == 'IDENTIFIER':
             if token_value in symbol_table:
-                expr += str(symbol_table[token_value])
+                # Si es un string, añadir comillas al valor
+                if isinstance(symbol_table[token_value], str):
+                    expr += f'"{symbol_table[token_value]}"'
+                else:
+                    expr += str(symbol_table[token_value])
             else:
                 raise SyntaxError(f'Variable no definida en la línea {line_num}: {token_value}')
-        elif token_type in ('NUMBER', 'STRING', 'OPERATOR'):
+        elif token_type == 'STRING':
+            expr += token_value  # Ya incluye comillas
+        elif token_type in ('NUMBER', 'OPERATOR'):
             expr += token_value
         else:
             raise SyntaxError(f'Error de sintaxis en la expresión en la línea {line_num}: {token_value}')
@@ -287,7 +313,7 @@ def evaluate_expression(tokens, symbol_table):
 @app.route('/compile', methods=['POST'])
 def compile_code():
     code = request.json.get('code', '').strip()
-    
+    logs.clear()
     if not code:
         return jsonify({'error': 'El código no puede estar vacío.'}), 400
     
@@ -299,7 +325,8 @@ def compile_code():
             'message': 'Compilado con éxito.',
             'variables': symbol_table,
             'minified_code': minified_code,
-            'tokens_found': tokens_detected
+            'tokens_found': tokens_detected,
+            'logs': logs
         })
     
     except SyntaxError as e:
