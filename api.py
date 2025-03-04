@@ -9,7 +9,7 @@ CORS(app)
 tokens = [
     ('START', r'\bINICIO\b'),                      # Inicio del programa
     ('END', r'\bFIN\b'),                           # Fin del programa
-    ('KEYWORD', r'\b(if|else|print|scan|while|doFor)\b'),# Palabras clave
+    ('KEYWORD', r'\b(if|else|print|scan|while|doFor|func)\b'),# Palabras clave
     ('OPERATOR', r'(\+|\-|\*|\/|==|<=|>=|=|%|<|>|&|\|)'),  # Operadores
     ('IDENTIFIER', r'\b[A-Za-z_][A-Za-z0-9_]*\b'), # Identificadores
     ('NUMBER', r'\b\d+(\.\d+)?\b'),                # Números (enteros y flotantes)
@@ -56,7 +56,10 @@ def parse_program(tokens):
         raise SyntaxError('El programa debe comenzar con "INICIO" y terminar con "FIN".')
     
     in_program = False
-    symbol_table = {}
+    symbol_table = {
+        '__funciones__': {},  # Nuevo: almacenar funciones
+        '__logs__': {},  # Nuevo: almacenar funciones
+    }
     current_statement = []
     brace_stack = []  # Para manejar bloques anidados
     
@@ -110,10 +113,115 @@ def parse_statement(tokens, symbol_table):
         parse_doFor(tokens, symbol_table)
     elif first_token == 'print':  # Nuevo caso para print
         parse_print(tokens, symbol_table)
+    elif first_token == 'func':
+        parse_function(tokens, symbol_table)
     elif tokens[0][1] == '{':
         parse_block(tokens, symbol_table)
     else:
-        parse_assignment(tokens, symbol_table)
+        if len(tokens) > 1 and tokens[1][1] == '(':
+            parse_function_call(tokens, symbol_table)
+        else:
+            parse_assignment(tokens, symbol_table)
+
+def parse_function(tokens, symbol_table):
+    try:
+        # Validar estructura básica: 'func' + IDENTIFIER + '('
+        if len(tokens) < 4:
+            line_num = tokens[0][2]
+            raise SyntaxError(f'Error en línea {line_num}: Declaración de función incompleta')
+            
+        if tokens[1][0] != 'IDENTIFIER':
+            line_num = tokens[1][2]
+            raise SyntaxError(f'Error en línea {line_num}: Nombre de función no válido')
+            
+        if tokens[2][1] != '(':
+            line_num = tokens[2][2]
+            raise SyntaxError(f'Error en línea {line_num}: Se esperaba "(" después del nombre de la función')
+        
+        func_name = tokens[1][1]
+        
+        # Buscar cierre de parámetros
+        paren_end = None
+        paren_count = 0
+        for i, token in enumerate(tokens[2:]):
+            if token[1] == '(':
+                paren_count += 1
+            elif token[1] == ')':
+                paren_count -= 1
+                if paren_count == 0:
+                    paren_end = i + 2  # Ajustar índice por el slice
+                    break
+        
+        if paren_end is None:
+            line_num = tokens[0][2]
+            raise SyntaxError(f'Error en línea {line_num}: Paréntesis de parámetros no cerrado')
+        
+        # Extraer parámetros
+        params = []
+        for t in tokens[3:paren_end]:
+            if t[0] == 'IDENTIFIER':
+                params.append(t[1])
+            elif t[1] != ',':
+                line_num = t[2]
+                raise SyntaxError(f'Error en línea {line_num}: Carácter no válido en parámetros')
+        
+        # Validar cuerpo
+        body_start = paren_end + 1
+        if body_start >= len(tokens) or tokens[body_start][1] != '{':
+            line_num = tokens[body_start][2] if body_start < len(tokens) else tokens[-1][2]
+            raise SyntaxError('Error en línea {line_num}: Cuerpo de función debe comenzar con {')
+        
+        # Almacenar función
+        symbol_table['__funciones__'][func_name] = {
+            'params': params,
+            'body': tokens[body_start:]
+        }
+        
+    except ValueError:
+        line_num = tokens[0][2]
+        raise SyntaxError(f'Error en línea {line_num}: Estructura de función inválida')
+# Nueva función para procesar llamadas a funciones
+def parse_function_call(tokens, symbol_table):
+    func_name = tokens[0][1]
+    
+    print(symbol_table)
+
+    if func_name not in symbol_table['__funciones__'] or not isinstance(symbol_table['__funciones__'][func_name], dict):
+        raise SyntaxError(f'Función no definida: {func_name}')
+    
+    # Obtener argumentos
+    paren_start = tokens.index(('SYMBOL', '(', tokens[0][2]))
+    paren_end = tokens.index(('SYMBOL', ')', tokens[0][2]))
+    args_tokens = tokens[paren_start+1:paren_end]
+    
+    # Evaluar argumentos
+    args = []
+    current_arg = []
+    for token in args_tokens:
+        if token[1] == ',':
+            args.append(evaluate_expression(current_arg, symbol_table))
+            current_arg = []
+        else:
+            current_arg.append(token)
+    if current_arg:
+        args.append(evaluate_expression(current_arg, symbol_table))
+    
+    # Verificar parámetros
+    func_data = symbol_table['__funciones__'][func_name]
+    if len(args) != len(func_data['params']):
+        raise SyntaxError(f'Número incorrecto de argumentos para {func_name}')
+    
+    # Crear nuevo ámbito
+    local_scope = symbol_table.copy()
+    local_scope.update(zip(func_data['params'], args))
+    
+    # Ejecutar cuerpo de la función
+    parse_block(func_data['body'], local_scope)
+    
+    # # Actualizar símbolos globales
+    # for var in local_scope:
+    #     if var not in symbol_table:
+    #         symbol_table[var] = local_scope[var]
 
 def parse_print(tokens, symbol_table):
     try:

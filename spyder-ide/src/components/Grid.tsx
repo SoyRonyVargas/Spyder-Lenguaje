@@ -1,5 +1,5 @@
-import React from 'react'
 import useCompile from '../hooks/useCompile'
+import Editor from '@monaco-editor/react';
 
 const Grid = () => {
 
@@ -7,15 +7,28 @@ const Grid = () => {
         handleChangeCode,
         handleCompile,
         success,
-        error 
+        variables,
+        error,
+        value
     } = useCompile()
     return (
         <div className='grid'>
             <section>
+                <Editor 
+                    height="500px" 
+                    // language="javascript"  
+                    value={value}
+                    theme='vs-dark'
+                    options={{ minimap: { enabled: true } }}
+                    language="plaintext" // Modo texto plano (sin resaltado)
+                    onChange={handleChangeCode}
+
+                />
                 <textarea 
                     id="code"
-                    onInput={handleChangeCode}
-                    onChange={handleChangeCode}
+                    style={{display: 'none'}}
+                    // onInput={handleChangeCode}
+                    // onChange={handleChangeCode}
                 >
                 </textarea>
                 <button onClick={handleCompile} className='btn btn-primary'>Compilar</button>
@@ -54,7 +67,7 @@ const Grid = () => {
                     {
                         success &&
                         <ul>
-                            {Object.entries(success.variables).map(([key, value], index) => (
+                            {Object.entries(variables).map(([key, value], index) => (
                                 <li key={index}>{key} - {value}</li>
                             ))}
                         </ul>
