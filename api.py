@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from deep_translator import GoogleTranslator
 from flask_cors import CORS
 import re
 
@@ -24,6 +25,8 @@ tokens = [
 ]
 
 logs = []
+unused_vars = {}
+unused_fns = {}
 
 # Función para el analizador léxico
 def lexer(code):
@@ -176,7 +179,14 @@ def parse_function(tokens, symbol_table):
             'params': params,
             'body': tokens[body_start:]
         }
-        
+
+        unused_fns[func_name] = {
+            'params': params,
+            'body': tokens[body_start:],
+            'called': False,  # Nuevo: indica si la función fue llamada
+            # 'used_params': used_params  # Parámetros realmente usados
+        }
+
     except ValueError:
         line_num = tokens[0][2]
         raise SyntaxError(f'Error en línea {line_num}: Estructura de función inválida')
@@ -184,7 +194,7 @@ def parse_function(tokens, symbol_table):
 def parse_function_call(tokens, symbol_table):
     func_name = tokens[0][1]
     
-    print(symbol_table)
+    # print(symbol_table)
 
     if func_name not in symbol_table['__funciones__'] or not isinstance(symbol_table['__funciones__'][func_name], dict):
         raise SyntaxError(f'Función no definida: {func_name}')
@@ -222,6 +232,9 @@ def parse_function_call(tokens, symbol_table):
     # for var in local_scope:
     #     if var not in symbol_table:
     #         symbol_table[var] = local_scope[var]
+    unused_fns[func_name]['called'] = True
+
+
 
 def parse_print(tokens, symbol_table):
     try:
@@ -237,6 +250,7 @@ def parse_print(tokens, symbol_table):
     result = evaluate_expression(expr_tokens, symbol_table)
     
     # Almacenar el resultado en el array global
+    print(result)
     logs.append(str(result))
 
 def parse_doFor(tokens, symbol_table):
@@ -389,9 +403,32 @@ def parse_assignment(tokens, symbol_table):
             value = evaluate_expression(expr_tokens, symbol_table)
 
         symbol_table[var_name] = value
+        unused_vars[var_name] = {
+            'value': value,
+            'used': False  # Inicialmente no usada
+        }
     else:
         line_num = tokens[0][2] if tokens else '?'
         raise SyntaxError(f'Error de sintaxis en la línea {line_num}.')
+
+def find_unused_variables(symbol_table):
+    unused = []
+    for var, data in unused_vars.items():
+        if var.startswith('__'):  # Ignorar variables internas
+            continue
+        if isinstance(data, dict) and not data.get('used', False):
+            unused.append(var)
+    return unused
+
+def get_usage_functions_warnings():
+    warnings = []
+    
+    # Verificar funciones no llamadas
+    for func_name, func_data in unused_fns.items():
+        if not func_data['called']:
+            warnings.append(f'⚠️ Función "{func_name}" declarada pero nunca usada')
+            
+    return warnings
 
 # Función para evaluar expresiones aritméticas
 def evaluate_expression(tokens, symbol_table):
@@ -399,6 +436,8 @@ def evaluate_expression(tokens, symbol_table):
     for token_type, token_value, line_num in tokens:
         if token_type == 'IDENTIFIER':
             if token_value in symbol_table:
+                if token_value in unused_vars:
+                    unused_vars[token_value]['used'] = True
                 # Si es un string, añadir comillas al valor
                 if isinstance(symbol_table[token_value], str):
                     expr += f'"{symbol_table[token_value]}"'
@@ -415,7 +454,9 @@ def evaluate_expression(tokens, symbol_table):
     try:
         result = eval(expr)
     except Exception as e:
-        raise SyntaxError(f'Error evaluando la expresión: {expr} ({e})')
+        error_str = str(e)
+        traduccion = GoogleTranslator(source='en', target='es').translate(error_str)
+        raise SyntaxError(f'Error evaluando la expresión: {expr} ({traduccion})')
     return result
 
 @app.route('/compile', methods=['POST'])
@@ -428,13 +469,18 @@ def compile_code():
     try:
         tokens_detected, minified_code = lexer(code)
         symbol_table = parse_program(tokens_detected)
+        unused = find_unused_variables(symbol_table)
+        unused_fns_local = get_usage_functions_warnings()
+        warnings = [f'⚠️ Variable "{var}" declarada pero no usada' for var in unused]
 
         return jsonify({
             'message': 'Compilado con éxito.',
             'variables': symbol_table,
             'minified_code': minified_code,
             'tokens_found': tokens_detected,
-            'logs': logs
+            'logs': logs,
+            'warnings': warnings,
+            'warnings_fns': unused_fns_local
         })
     
     except SyntaxError as e:

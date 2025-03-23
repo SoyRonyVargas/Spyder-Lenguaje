@@ -9,7 +9,8 @@ const Grid = () => {
         success,
         variables,
         error,
-        value
+        value,
+        warnings
     } = useCompile()
     return (
         <div className='grid'>
@@ -68,10 +69,11 @@ const Grid = () => {
                         success &&
                         <ul>
                             {Object.entries(variables).map(([key, value], index) => (
-                                <li key={index}>{key} - {value}</li>
+                                <li key={index}>{key} = {value}</li>
                             ))}
                         </ul>
                     }
+                    
                 </div>
                 <div>
                     <h3>Codigo Final</h3>
@@ -95,6 +97,14 @@ const Grid = () => {
                                 </>
                             ))
                         }
+                        {
+                        success &&
+                        <>
+                            {warnings?.map((element,index) => (
+                                <li key={index}>{element}</li>
+                            ))}
+                        </>
+                    }
                     </ul>
                 </div>
             </section>

@@ -79,3 +79,12 @@ doFor (i = 0; i < 5; i = i + 1){
     }!
 }!
 FIN
+
+7. Funciones
+INICIO
+x=1!
+func saludar (nombre) {
+  print("Hola " + nombre)!
+}!
+saludar("Mundo 777")!
+FIN

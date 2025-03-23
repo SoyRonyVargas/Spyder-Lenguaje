@@ -18,6 +18,7 @@ const useCompile = () => {
     const [ success , setSuccess ] = useState<Compiled | null>(null)
     const [ value , setValue ] = useState<any>('')
     const [ variables , setVariables ] = useState<any>([])
+    const [ warnings , setWarnings ] = useState<string>([])
 
     useEffect(() => {
         const code = window.localStorage.getItem('code')
@@ -37,12 +38,12 @@ const useCompile = () => {
 
             const { data } = await axios.post(APIURL, { code })
 
-            const { variables } = data
+            const { variables = {} , warnings = [] , warnings_fns = [] } = data
             const { __funciones__ , __logs__ , ...rest } = variables
 
             setSuccess(data)
             setVariables(rest)
-
+            setWarnings(warnings.concat(warnings_fns))
             setError(null)
         
         } 
@@ -79,6 +80,7 @@ const useCompile = () => {
     success,
     error,
     value,
+    warnings
   }
 }
 
