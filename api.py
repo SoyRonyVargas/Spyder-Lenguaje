@@ -27,6 +27,7 @@ tokens = [
 logs = []
 unused_vars = {}
 unused_fns = {}
+types = {}
 
 # Función para el analizador léxico
 def lexer(code):
@@ -385,6 +386,16 @@ def parse_else(tokens, symbol_table):
     # Procesa el cuerpo del else
     parse_statement(tokens[1:], symbol_table)
 
+def determine_type(value):
+    if isinstance(value, bool):
+        return 'boolean'
+    elif isinstance(value, (int, float)):
+        return 'number'
+    elif isinstance(value, str):
+        return 'string'
+    else:
+        raise SyntaxError(f'Tipo no soportado: {type(value).__name__}')
+
 # Función para procesar asignaciones de variables
 def parse_assignment(tokens, symbol_table):
     if len(tokens) >= 3 and tokens[0][0] == 'IDENTIFIER' and tokens[1][0] == 'OPERATOR' and tokens[1][1] == '=':
@@ -402,11 +413,27 @@ def parse_assignment(tokens, symbol_table):
                     raise SyntaxError(f'Error de sintaxis en la línea {line_num}: falta el símbolo "!" al final de la declaración.')
             value = evaluate_expression(expr_tokens, symbol_table)
 
-        symbol_table[var_name] = value
-        unused_vars[var_name] = {
-            'value': value,
-            'used': False  # Inicialmente no usada
-        }
+        new_type = determine_type(value)
+
+        if var_name in symbol_table:
+            existing_type = types[var_name]
+            if existing_type != new_type:
+                line_num = tokens[0][2]
+                raise SyntaxError(f'Error en línea {line_num}: Variable "{var_name}" es de tipo {existing_type}, no se puede asignar {new_type}')
+            # Actualizar valor
+            symbol_table[var_name] = value
+        else:
+            # Crear nueva entrada
+            # symbol_table[var_name] = {
+            #     'value': new_value,
+            #     'type': new_type
+            # }
+            symbol_table[var_name] = value
+            unused_vars[var_name] = {
+                'value': value,
+                'used': False  # Inicialmente no usada
+            }
+            types[var_name] = new_type
     else:
         line_num = tokens[0][2] if tokens else '?'
         raise SyntaxError(f'Error de sintaxis en la línea {line_num}.')
@@ -462,6 +489,9 @@ def evaluate_expression(tokens, symbol_table):
 @app.route('/compile', methods=['POST'])
 def compile_code():
     code = request.json.get('code', '').strip()
+    unused_vars = {}
+    unused_fns = {}
+    types = {}
     logs.clear()
     if not code:
         return jsonify({'error': 'El código no puede estar vacío.'}), 400

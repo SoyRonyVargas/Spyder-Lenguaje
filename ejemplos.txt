@@ -88,3 +88,25 @@ func saludar (nombre) {
 }!
 saludar("Mundo 777")!
 FIN
+
+8. Ejemplo final
+INICIO
+func saludar (nombre) {
+  print("Hola " + nombre)!
+}!
+x = 1!
+
+if( 1 == 1 )
+{ 
+  test=10!
+  print("Sexo")!
+}!
+z = "Hola" + "1"!
+test=12!
+print(z)!
+hey = 1!
+print(hey)!
+zfinal = x + test!
+print(x)! 
+x = "hola"!
+FIN
